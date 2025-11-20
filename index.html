@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Dự lễ tốt nghiệp Quân nha</title>
+<style>
+    body {
+        font-family: "Arial", sans-serif;
+        background: linear-gradient(135deg, #f6d5f7, #fbe9d7);
+        text-align: center;
+        padding-top: 120px;
+        color: #444;
+    }
+
+    #container {
+        position: relative;
+        display: inline-block;
+        padding: 30px 40px;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0px 4px 20px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+        margin-bottom: 25px;
+        font-size: 24px;
+        color: #e67e22;
+    }
+
+    .buttons {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+
+    button {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: 0.2s;
+    }
+
+    #yesBtn {
+        background-color: #2ecc71;
+        color: white;
+    }
+
+    #noBtn {
+        background-color: #e74c3c;
+        color: white;
+    }
+
+    #noBtnPlaceholder {
+        display: none;
+        visibility: hidden;
+    }
+
+    #thankyou {
+        font-size: 26px;
+        color: #27ae60;
+        display: none;
+        margin-top: 40px;
+    }
+</style>
+</head>
+<body>
+
+<div id="container">
+    <h2>Cậu đến dự lễ tốt nghiệp của Quân nhé! 🎓</h2>
+
+    <div class="buttons">
+        <button id="yesBtn">Oke lun</button>
+        <button id="noBtn">Hong được rùi</button>
+        <span id="noBtnPlaceholder" aria-hidden="true"></span>
+    </div>
+</div>
+`
+<div id="thankyou">Cảm ơn cậu nhiều lắm! ❤️ Hẹn gặp cậu ở lễ tốt nghiệp!</div>
+
+<script>
+    const noBtn = document.getElementById("noBtn");
+    const yesBtn = document.getElementById("yesBtn");
+    const container = document.getElementById("container");
+    const thankyou = document.getElementById("thankyou");
+    const noBtnPlaceholder = document.getElementById("noBtnPlaceholder");
+
+    let noBtnFloating = false;
+
+    function moveNoButton() {
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const buttonWidth = noBtn.offsetWidth;
+        const buttonHeight = noBtn.offsetHeight;
+
+        const newX = Math.random() * (viewportWidth - buttonWidth);
+        const newY = Math.random() * (viewportHeight - buttonHeight);
+
+        noBtn.style.left = newX + "px";
+        noBtn.style.top = newY + "px";
+    }
+
+    noBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+
+        if (!noBtnFloating) {
+            const rect = noBtn.getBoundingClientRect();
+            noBtn.style.position = "fixed";
+            noBtn.style.left = rect.left + "px";
+            noBtn.style.top = rect.top + "px";
+            noBtnPlaceholder.style.display = "inline-block";
+            noBtnPlaceholder.style.width = rect.width + "px";
+            noBtnPlaceholder.style.height = rect.height + "px";
+            noBtnFloating = true;
+        }
+
+        moveNoButton();
+    });
+
+    yesBtn.addEventListener("click", () => {
+        container.style.display = "none";
+        thankyou.style.display = "block";
+    });
+</script>
+
+</body>
+</html>
