@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Tạo link tốt nghiệp bí mật</title>
+    <style>
+        body {
+            font-family: "Arial", sans-serif;
+            background: linear-gradient(135deg, #d4fc79, #96e6a1);
+            padding: 40px 16px;
+            color: #333;
+            display: flex;
+            justify-content: center;
+        }
+
+        #wrapper {
+            max-width: 640px;
+            width: 100%;
+            background: #fff;
+            border-radius: 18px;
+            padding: 24px 28px 28px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+        }
+
+        h1 {
+            margin-top: 0;
+            margin-bottom: 4px;
+            font-size: 24px;
+            color: #27ae60;
+        }
+
+        p.subtitle {
+            margin-top: 0;
+            margin-bottom: 18px;
+            color: #777;
+            font-size: 14px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-top: 14px;
+            margin-bottom: 6px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 70px;
+            resize: vertical;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            font-family: inherit;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        button {
+            margin-top: 18px;
+            padding: 10px 20px;
+            border-radius: 999px;
+            border: none;
+            cursor: pointer;
+            background: #27ae60;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        .output-block {
+            margin-top: 22px;
+            padding-top: 14px;
+            border-top: 1px solid #eee;
+            font-size: 13px;
+        }
+
+        .output-block code {
+            display: block;
+            margin-top: 4px;
+            padding: 6px 8px;
+            border-radius: 6px;
+            background: #f5f5f5;
+            word-break: break-all;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: #999;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+<body>
+<div id="wrapper">
+    <h1>Tạo link lời mời bí mật 🎓</h1>
+    <p class="subtitle">Nhập câu <strong>title</strong>, <strong>thankyou</strong> và text của nút <strong>Yes/No</strong>, rồi nhận link đã mã hóa (param duy nhất <code>for</code>) để gửi cho bạn.</p>
+
+    <label for="titleInput">Title (câu mở đầu)</label>
+    <textarea id="titleInput" placeholder="Cậu đến dự lễ tốt nghiệp của Quân nhé! 🎓"></textarea>
+
+    <label for="thankyouInput">Thankyou (câu cảm ơn)</label>
+    <textarea id="thankyouInput" placeholder="Cảm ơn cậu nhiều lắm! ❤️ Hẹn gặp cậu ở lễ tốt nghiệp!"></textarea>
+
+    <label for="nameInputField">Tên người nhận (tùy chọn)</label>
+    <input id="nameInputField" type="text" placeholder="Tên cậu..." />
+
+    <label for="yesInput">Text nút Yes</label>
+    <textarea id="yesInput" placeholder="Oke lun"></textarea>
+
+    <label for="noInput">Text nút No</label>
+    <textarea id="noInput" placeholder="Hong được rùi"></textarea>
+
+    <button id="encryptBtn">Tạo link mã hóa</button>
+
+    <div class="output-block" id="output" style="display:none;">
+        <div>
+            <strong>Encrypted title</strong>
+            <code id="encTitle"></code>
+        </div>
+        <div style="margin-top: 8px;">
+            <strong>Encrypted thankyou</strong>
+            <code id="encThankyou"></code>
+        </div>
+        <div style="margin-top: 10px;">
+            <strong>URL để gửi cho bạn</strong>
+            <code id="finalUrl"></code>
+        </div>
+        <div class="hint">
+            Gợi ý: copy nguyên đường link trên và gửi cho bạn. Khi mở, trang <code>index.html</code>
+            sẽ tự giải mã và hiển thị lời mời.
+        </div>
+    </div>
+</div>
+
+<script>
+    const encryptBtn = document.getElementById("encryptBtn");
+    const titleInput = document.getElementById("titleInput");
+    const thankyouInput = document.getElementById("thankyouInput");
+    const nameInputField = document.getElementById("nameInputField");
+    const yesInput = document.getElementById("yesInput");
+    const noInput = document.getElementById("noInput");
+    const output = document.getElementById("output");
+    const encTitleEl = document.getElementById("encTitle");
+    const encThankyouEl = document.getElementById("encThankyou");
+    const finalUrlEl = document.getElementById("finalUrl");
+
+    function toBase64(bytes) {
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+    }
+
+    async function encryptAes256CbcToBase64(plaintext, passphrase) {
+        const enc = new TextEncoder();
+        const data = enc.encode(plaintext);
+
+        const passphraseKey = await crypto.subtle.importKey(
+            "raw",
+            enc.encode(passphrase),
+            { name: "PBKDF2" },
+            false,
+            ["deriveKey"]
+        );
+
+        const salt = enc.encode("graduation-salt");
+        const key = await crypto.subtle.deriveKey(
+            {
+                name: "PBKDF2",
+                salt,
+                iterations: 100000,
+                hash: "SHA-256"
+            },
+            passphraseKey,
+            { name: "AES-CBC", length: 256 },
+            false,
+            ["encrypt"]
+        );
+
+        const iv = crypto.getRandomValues(new Uint8Array(16));
+
+        const encryptedBuffer = await crypto.subtle.encrypt(
+            { name: "AES-CBC", iv },
+            key,
+            data
+        );
+
+        const encryptedBytes = new Uint8Array(encryptedBuffer);
+        const combined = new Uint8Array(iv.length + encryptedBytes.length);
+        combined.set(iv, 0);
+        combined.set(encryptedBytes, iv.length);
+
+        return toBase64(combined);
+    }
+
+    encryptBtn.addEventListener("click", async () => {
+        const titleText = titleInput.value.trim();
+        const thankyouText = thankyouInput.value.trim();
+        const nameText = nameInputField.value.trim();
+        const yesText = yesInput.value.trim();
+        const noText = noInput.value.trim();
+
+        encryptBtn.disabled = true;
+        encryptBtn.textContent = "Đang mã hóa...";
+
+        try {
+            const passphrase = "graduation";
+
+            const payload = {
+                title: titleText || "",
+                thankyou: thankyouText || "",
+                name: nameText || "",
+                yes: yesText || "",
+                no: noText || "",
+            };
+
+            const jsonString = JSON.stringify(payload);
+            const encFor = await encryptAes256CbcToBase64(jsonString, passphrase);
+
+            encTitleEl.textContent = encFor;
+            encThankyouEl.textContent = "(gói chung trong param 'for')";
+
+            const baseUrl = window.location.origin +
+                window.location.pathname.replace(/[^/]*$/, "") +
+                "index.html";
+
+            const params = new URLSearchParams();
+            params.set("for", encFor);
+
+            const finalUrl = baseUrl + "?" + params.toString();
+            finalUrlEl.textContent = finalUrl;
+
+            output.style.display = "block";
+        } catch (e) {
+            console.error(e);
+            alert("Có lỗi khi mã hóa. Thử lại sau nhé.");
+        } finally {
+            encryptBtn.disabled = false;
+            encryptBtn.textContent = "Tạo link mã hóa";
+        }
+    });
+</script>
+
+</body>
+</html>
+
+

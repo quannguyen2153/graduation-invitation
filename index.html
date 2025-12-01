@@ -33,6 +33,14 @@
         align-items: center;
         gap: 20px;
         flex-wrap: wrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+
+    .buttons.buttons-visible {
+        opacity: 1;
+        pointer-events: auto;
     }
 
     button {
@@ -42,6 +50,14 @@
         cursor: pointer;
         font-size: 16px;
         transition: 0.2s;
+        opacity: 0;
+        transform: translateY(12px);
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    button.button-visible {
+        opacity: 1;
+        transform: translateY(0);
     }
 
     #yesBtn {
@@ -65,12 +81,60 @@
         display: none;
         margin-top: 40px;
     }
+
+    #nameHeading {
+        display: none;
+    }
+
+    #nameHeading input {
+        margin-top: 10px;
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        font-size: 16px;
+        font-family: inherit;
+        box-sizing: border-box;
+    }
+
+    /* Letter drop animation */
+    .letter-drop {
+        display: inline-block;
+        opacity: 0;
+        transform: translateY(-20px);
+        animation-name: letterDrop;
+        animation-duration: 0.2s;
+        animation-fill-mode: forwards;
+        animation-timing-function: ease-out;
+    }
+
+    @keyframes letterDrop {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    #noBtnCounter {
+        position: fixed;
+        bottom: 12px;
+        right: 12px;
+        font-size: 14px;
+        color: #444;
+        display: none;
+    }
 </style>
 </head>
 <body>
 
 <div id="container">
-    <h2>Cậu đến dự lễ tốt nghiệp của Quân nhé! 🎓</h2>
+    <h2 id="titleHeading">Cậu đến dự lễ tốt nghiệp của Quân nhé! 🎓</h2>
+
+    <h2 id="nameHeading">
+        Oops, hình như tớ lạc mất thiệp cậu rùi! Cậu có thể cho tớ biết tên để dễ tìm thiệp hơn khum?
+        <br/>
+        <input id="nameInput" type="text" placeholder="Tên cậu..." />
+    </h2>
 
     <div class="buttons">
         <button id="yesBtn">Oke lun</button>
@@ -78,15 +142,217 @@
         <span id="noBtnPlaceholder" aria-hidden="true"></span>
     </div>
 </div>
-`
+
 <div id="thankyou">Cảm ơn cậu nhiều lắm! ❤️ Hẹn gặp cậu ở lễ tốt nghiệp!</div>
+<div id="noBtnCounter"></div>
 
 <script>
     const noBtn = document.getElementById("noBtn");
     const yesBtn = document.getElementById("yesBtn");
     const container = document.getElementById("container");
     const thankyou = document.getElementById("thankyou");
+    const title = document.getElementById("titleHeading");
+    const nameHeading = document.getElementById("nameHeading");
+    const buttonsWrapper = document.querySelector(".buttons");
     const noBtnPlaceholder = document.getElementById("noBtnPlaceholder");
+    const nameInput = document.getElementById("nameInput");
+    const noBtnCounter = document.getElementById("noBtnCounter");
+    const urlParams = new URLSearchParams(window.location.search);
+
+    const defaultTitle = "Cậu đến dự lễ tốt nghiệp của Quân nhé! 🎓";
+    const defaultThankyou = "Cảm ơn cậu nhiều lắm! ❤️ Hẹn gặp cậu ở lễ tốt nghiệp!";
+    const defaultYes = "Oke lun";
+    const defaultNo = "Hong được rùi";
+
+    let userName = "";
+    let noBtnClickCount = 0;
+
+    // AES-256-CBC decryption using Web Crypto.
+    // Expected format of param value:
+    //   base64( IV(16 bytes) + CIPHERTEXT )
+    // Key is derived from passphrase "graduation" with PBKDF2 + SHA-256.
+    async function decryptAes256CbcBase64(base64Input, passphrase) {
+        if (!base64Input) return null;
+        try {
+            const raw = Uint8Array.from(atob(base64Input), c => c.charCodeAt(0));
+            if (raw.length <= 16) return null;
+
+            const iv = raw.slice(0, 16);
+            const ciphertext = raw.slice(16);
+
+            const enc = new TextEncoder();
+            const passphraseKey = await crypto.subtle.importKey(
+                "raw",
+                enc.encode(passphrase),
+                { name: "PBKDF2" },
+                false,
+                ["deriveKey"]
+            );
+
+            // IMPORTANT: salt and iterations must match encryption side.
+            const salt = enc.encode("graduation-salt");
+            const key = await crypto.subtle.deriveKey(
+                {
+                    name: "PBKDF2",
+                    salt,
+                    iterations: 100000,
+                    hash: "SHA-256"
+                },
+                passphraseKey,
+                { name: "AES-CBC", length: 256 },
+                false,
+                ["decrypt"]
+            );
+
+            const decryptedBuffer = await crypto.subtle.decrypt(
+                { name: "AES-CBC", iv },
+                key,
+                ciphertext
+            );
+
+            return new TextDecoder().decode(decryptedBuffer);
+        } catch (e) {
+            console.error("Decryption failed:", e);
+            return null;
+        }
+    }
+
+    async function getTextsFromParam() {
+        const encryptedValue = urlParams.get("for");
+        if (!encryptedValue) {
+            return {
+                titleText: defaultTitle,
+                thankyouText: defaultThankyou,
+                yesText: defaultYes,
+                noText: defaultNo,
+                nameText: "",
+                needName: false,
+            };
+        }
+
+        const decrypted = await decryptAes256CbcBase64(encryptedValue, "graduation");
+        if (!decrypted || !decrypted.trim().length) {
+            return {
+                titleText: defaultTitle,
+                thankyouText: defaultThankyou,
+                yesText: defaultYes,
+                noText: defaultNo,
+                nameText: "",
+                needName: true,
+            };
+        }
+
+        try {
+            const parsed = JSON.parse(decrypted);
+            const titleText =
+                parsed && typeof parsed.title === "string" && parsed.title.trim().length
+                    ? parsed.title.trim()
+                    : defaultTitle;
+            const thankyouText =
+                parsed && typeof parsed.thankyou === "string" && parsed.thankyou.trim().length
+                    ? parsed.thankyou.trim()
+                    : defaultThankyou;
+            const yesText =
+                parsed && typeof parsed.yes === "string" && parsed.yes.trim().length
+                    ? parsed.yes.trim()
+                    : defaultYes;
+            const noText =
+                parsed && typeof parsed.no === "string" && parsed.no.trim().length
+                    ? parsed.no.trim()
+                    : defaultNo;
+            const nameText =
+                parsed && typeof parsed.name === "string" && parsed.name.trim().length
+                    ? parsed.name.trim()
+                    : "";
+
+            return { titleText, thankyouText, yesText, noText, nameText, needName: false };
+        } catch (e) {
+            console.error("Failed to parse decrypted JSON:", e);
+            return {
+                titleText: defaultTitle,
+                thankyouText: defaultThankyou,
+                yesText: defaultYes,
+                noText: defaultNo,
+                nameText: "",
+                needName: true,
+            };
+        }
+    }
+
+    function updateNoBtnCounter(isOnThankyouScreen) {
+        if (!userName) return;
+
+        // Thank-you screen: show after more than 2 clicks
+        if (isOnThankyouScreen) {
+            if (noBtnClickCount > 2) {
+                noBtnCounter.textContent = `${userName} bấm ${noBtn.textContent} ${noBtnClickCount} lần :(`;
+                noBtnCounter.style.display = "block";
+            } else {
+                noBtnCounter.style.display = "none";
+            }
+            return;
+        }
+
+        // Title screen: show only after more than 4 clicks
+        if (noBtnClickCount > 4) {
+            noBtnCounter.textContent = `${userName} bấm ${noBtn.textContent} ${noBtnClickCount} lần :(`;
+            noBtnCounter.style.display = "block";
+        } else {
+            noBtnCounter.style.display = "none";
+        }
+    }
+
+    // Initialize text, then animate title with the final (possibly decrypted) value
+    (async () => {
+        const { titleText, thankyouText, yesText, noText, nameText, needName } = await getTextsFromParam();
+
+        yesBtn.textContent = yesText;
+        noBtn.textContent = noText;
+        userName = nameText;
+        updateNoBtnCounter(false);
+
+        if (needName) {
+            // Show name heading (styled like title) instead of the real title
+            title.style.display = "none";
+            nameHeading.style.display = "block";
+            thankyou.textContent = defaultThankyou;
+
+            nameInput.focus();
+
+            const handleNameEnter = (event) => {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    const rawName = nameInput.value.trim();
+                    if (!rawName) {
+                        return;
+                    }
+
+                    const name = rawName;
+                    const replaceCau = (text) =>
+                        text.replace(/cậu/gi, name);
+
+                    title.textContent = replaceCau(defaultTitle);
+                    thankyou.textContent = replaceCau(defaultThankyou);
+
+                    nameHeading.style.display = "none";
+                    title.style.display = "block";
+                    nameInput.removeEventListener("keydown", handleNameEnter);
+                    userName = name;
+                    updateNoBtnCounter(false);
+
+                    animateLetters(title).then(showButtons);
+                }
+            };
+
+            nameInput.addEventListener("keydown", handleNameEnter);
+        } else {
+            title.textContent = titleText;
+            thankyou.textContent = thankyouText;
+
+            // After text is ready, animate and then show buttons
+            animateLetters(title).then(showButtons);
+        }
+    })();
 
     let noBtnFloating = false;
 
@@ -118,12 +384,50 @@
         }
 
         moveNoButton();
+        noBtnClickCount += 1;
+        updateNoBtnCounter(false);
     });
 
     yesBtn.addEventListener("click", () => {
         container.style.display = "none";
         thankyou.style.display = "block";
+        updateNoBtnCounter(true);
+        animateLetters(thankyou);
     });
+
+    function animateLetters(element) {
+        const text = element.textContent;
+        element.textContent = "";
+
+        const characters = [...text];
+
+        characters.forEach((char, index) => {
+            const span = document.createElement("span");
+            span.textContent = char;
+            if (char === " ") {
+                span.style.whiteSpace = "pre";
+            }
+            span.classList.add("letter-drop");
+            span.style.animationDelay = (index * 0.05) + "s";
+            element.appendChild(span);
+        });
+
+        const totalDuration = characters.length
+            ? ((characters.length - 1) * 0.05 + 0.2) * 1000
+            : 0;
+
+        return new Promise((resolve) => setTimeout(resolve, totalDuration));
+    }
+
+    function showButtons() {
+        buttonsWrapper.classList.add("buttons-visible");
+        requestAnimationFrame(() => {
+            yesBtn.classList.add("button-visible");
+            setTimeout(() => {
+                noBtn.classList.add("button-visible");
+            }, 150);
+        });
+    }
 </script>
 
 </body>
